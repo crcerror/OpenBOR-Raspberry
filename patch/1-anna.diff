@@ -1,0 +1,145 @@
+--- sdl/menu.c	Fri Aug 10 10:15:18 2018
++++ sdl/menu.c	Fri Aug 31 08:10:54 2018
+@@ -696,6 +696,7 @@
+ {
+     int i;
+     int delay = 500;
++    return;
+ 
+     if(savedata.logo) return;
+ 
+--- sdl/video.c	Fri Aug 10 10:15:18 2018
++++ sdl/video.c	Fri Aug 31 08:10:02 2018
+@@ -68,12 +68,13 @@
+ #endif
+ 
+ 	SDL_GetCurrentDisplayMode(0, &video_info);
+-	nativeWidth = video_info.w;
+-	nativeHeight = video_info.h;
++	nativeWidth = 384;
++	nativeHeight = 224;
+ 	printf("debug:nativeWidth, nativeHeight, bpp, Hz  %d, %d, %d, %d\n", nativeWidth, nativeHeight, SDL_BITSPERPIXEL(video_info.format), video_info.refresh_rate);
+ 
+ 	SDL_initFramerate(&framerate_manager);
+ 	SDL_setFramerate(&framerate_manager, 200);
++	printf("debug:nativeWidth, nativeHeight, bpp, Hz  %d, %d, %d, %d\n", nativeWidth, nativeHeight, SDL_BITSPERPIXEL(video_info.format), video_info.refresh_rate);
+ }
+ 
+ void video_set_window_title(const char* title)
+@@ -86,10 +87,12 @@
+ 
+ int SetVideoMode(int w, int h, int bpp, bool gl)
+ {
++        w = 384;
++        h = 224;
+ 	int flags = SDL_WINDOW_SHOWN | SDL_WINDOW_INPUT_FOCUS;
+ 	static bool last_gl = false;
+-	static int last_x = SDL_WINDOWPOS_UNDEFINED;
+-	static int last_y = SDL_WINDOWPOS_UNDEFINED;
++	static int last_x = 0;//SDL_WINDOWPOS_UNDEFINED;
++	static int last_y = 0;//SDL_WINDOWPOS_UNDEFINED;
+ 
+ 	if(gl) flags |= SDL_WINDOW_OPENGL;
+ 	if(savedata.fullscreen) flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+@@ -232,9 +235,7 @@
+ 	SDL_UpdateTexture(texture, NULL, surface->data, surface->pitch);
+ 	blit();
+ 
+-#if WIN || LINUX
+ 	SDL_framerateDelay(&framerate_manager);
+-#endif
+ 
+ 	return 1;
+ }
+--- source/scriptlib/ScriptVariant.c	Fri Aug 10 10:15:18 2018
++++ source/scriptlib/ScriptVariant.c	Wed Aug 22 12:53:24 2018
+@@ -926,6 +926,7 @@
+     {
+     case VT_DECIMAL:
+         svar->dblVal = -(svar->dblVal);
++		break;
+     case VT_INTEGER:
+         svar->lVal = -(svar->lVal);
+     default:
+--- Makefile	Fri Aug 10 10:15:18 2018
++++ Makefile	Fri Aug 31 08:11:36 2018
+@@ -22,6 +22,7 @@
+ # Defines
+ #----------------------------------------------------------------------------------------------------
+ 
++#define BUILD_PANDORA
+ 
+ ifdef BUILD_PSP
+ TARGET          = $(VERSION_NAME)
+@@ -135,16 +136,20 @@
+ 
+ ifdef BUILD_PANDORA
+ TARGET 	        = $(VERSION_NAME).elf
+-TARGET_FINAL    = $(VERSION_NAME)
++TARGET_FINAL    = $(VERSION_NAME)-gl
+ TARGET_PLATFORM = PANDORA
+ BUILD_LINUX     = 1
+ BUILD_SDL       = 1
++BUILD_GLES      = 1
++BUILD_OPENGL    = 1
++BUILD_LOADGL    = 1
++BUILD_WEBM      = 1
+ BUILD_GFX       = 1
+ BUILD_PTHREAD   = 1
+ BUILD_SDL_IO    = 1
+ BUILD_TREMOR    = 1
+ BUILDING        = 1
+-CC  	        = $(PNDDEV)/bin/arm-none-linux-gnueabi-gcc
++CC  	        = gcc
+ INCLUDES        = $(PNDDEV)/include \
+                   $(PNDDEV)/include/SDL
+ OBJTYPE         = elf
+@@ -199,7 +204,7 @@
+ STRIP           = $(PREFIX)strip $(TARGET) -o $(TARGET_FINAL)
+ endif
+ ifdef BUILD_PANDORA
+-STRIP 	        = $(PNDDEV)/bin/arm-none-linux-gnueabi-strip $(TARGET) -o $(TARGET_FINAL)
++STRIP 	        = strip $(TARGET) -o $(TARGET_FINAL)
+ endif
+ ifdef BUILD_WII
+ STRIP           = elf2dol $< $@
+@@ -444,6 +449,7 @@
+ 
+ CFLAGS 	       += $(addprefix -I", $(addsuffix ", $(INCS))) $(ARCHFLAGS) -D$(TARGET_PLATFORM)
+ CFLAGS 	       += -g -Wall -Werror -fsigned-char -std=gnu99
++CFLAGS         += -marm -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard  -fomit-frame-pointer -ffast-math -O3
+ 
+ 
+ ifndef BUILD_DARWIN
+--- openbor.c	Fri Aug 10 10:15:18 2018
++++ openbor.c	Thu Aug 23 14:10:26 2018
+@@ -36635,22 +36635,22 @@
+ #endif
+ 
+ VIDEOMODES:
+-    videomodes.mode    = videoMode;
++    videomodes.mode    = 0;//videoMode;
+     videomodes.filter  = savedata.swfilter;
+     switch (videoMode)
+     {
+         // 320x240 - All Platforms
+     case 0:
+-        videomodes.hRes    = 320;
+-        videomodes.vRes    = 240;
++        videomodes.hRes    = 384;
++        videomodes.vRes    = 224;
+         videomodes.hScale  = 1;
+         videomodes.vScale  = 1;
+         videomodes.hShift  = 0;
+         videomodes.vShift  = 0;
+-        videomodes.dOffset = 231;
+-        PLAYER_MIN_Z       = 160;
+-        PLAYER_MAX_Z       = 232;
+-        BGHEIGHT           = 160;
++        videomodes.dOffset = 220;
++        PLAYER_MIN_Z       = 140;
++        PLAYER_MAX_Z       = 220;
++        BGHEIGHT           = 140;
+         break;
+ 
+         // 480x272 - All Platforms
