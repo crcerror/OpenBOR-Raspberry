@@ -89,7 +89,7 @@
  
  CFLAGS 	       += $(addprefix -I", $(addsuffix ", $(INCS))) $(ARCHFLAGS) -D$(TARGET_PLATFORM)
  CFLAGS 	       += -g -Wall -Werror -fsigned-char -std=gnu99
-+#CFLAGS         += -marm -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard -fomit-frame-pointer -ffast-math -O2
++CFLAGS         += -marm -mfloat-abi=hard -fomit-frame-pointer -ffast-math -O2
  
  
  ifndef BUILD_DARWIN
