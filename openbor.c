@@ -1424,6 +1424,72 @@ void execute_takedamage_script(entity *ent, entity *other, s_collision_attack *a
     }
 }
 
+// Caskey, Damon V.
+// 2018-08-30
+//
+// Run on the bind target when updating a bind.
+void execute_on_bind_update_other_to_self(entity *ent, entity *other, s_bind *binding)
+{
+    ScriptVariant tempvar;
+    Script *cs = ent->scripts->on_bind_update_other_to_self_script;
+
+    if(Script_IsInitialized(cs))
+    {
+        ScriptVariant_Init(&tempvar);
+        ScriptVariant_ChangeType(&tempvar, VT_PTR);
+
+        tempvar.ptrVal = (entity *)ent;
+        Script_Set_Local_Variant(cs, "self",    &tempvar);
+
+        tempvar.ptrVal = (entity *)other;
+        Script_Set_Local_Variant(cs, "other",   &tempvar);
+
+        tempvar.ptrVal = (s_bind *)binding;
+        Script_Set_Local_Variant(cs, "binding", &tempvar);
+
+        Script_Execute(cs);
+
+        //clear to save variant space
+        ScriptVariant_Clear(&tempvar);
+        Script_Set_Local_Variant(cs, "self",        &tempvar);
+        Script_Set_Local_Variant(cs, "other",       &tempvar);
+        Script_Set_Local_Variant(cs, "binding",     &tempvar);
+    }
+}
+
+// Caskey, Damon V.
+// 2018-08-30
+//
+// Run on bound entity when updating bind.
+void execute_on_bind_update_self_to_other(entity *ent, entity *other, s_bind *binding)
+{
+    ScriptVariant tempvar;
+    Script *cs = ent->scripts->on_bind_update_self_to_other_script;
+
+    if(Script_IsInitialized(cs))
+    {
+        ScriptVariant_Init(&tempvar);
+        ScriptVariant_ChangeType(&tempvar, VT_PTR);
+
+        tempvar.ptrVal = (entity *)ent;
+        Script_Set_Local_Variant(cs, "self",    &tempvar);
+
+        tempvar.ptrVal = (entity *)other;
+        Script_Set_Local_Variant(cs, "other",   &tempvar);
+
+        tempvar.ptrVal = (s_bind *)binding;
+        Script_Set_Local_Variant(cs, "binding", &tempvar);
+
+        Script_Execute(cs);
+
+        //clear to save variant space
+        ScriptVariant_Clear(&tempvar);
+        Script_Set_Local_Variant(cs, "self",        &tempvar);
+        Script_Set_Local_Variant(cs, "other",       &tempvar);
+        Script_Set_Local_Variant(cs, "binding",     &tempvar);
+    }
+}
+
 void execute_onpain_script(entity *ent, int iType, int iReset)
 {
     ScriptVariant tempvar;
@@ -2446,7 +2512,7 @@ void clearsettings()
     savedata.uselog = 1;
     savedata.debuginfo = 0;
     savedata.fullscreen = 0;
-	
+
 	#if WII
     savedata.stretch = 1;
 	#else
@@ -9193,44 +9259,56 @@ s_model *load_cached_model(char *name, char *owner, char unload)
                 }
 
                 tempdef(if, NORMAL)
-                    tempdef(else if, NORMAL2)
-                        tempdef(else if, NORMAL3)
-                            tempdef(else if, NORMAL4)
-                                tempdef(else if, NORMAL5)
-                                    tempdef(else if, NORMAL6)
-                                        tempdef(else if, NORMAL7)
-                                            tempdef(else if, NORMAL8)
-                                                tempdef(else if, NORMAL9)
-                                                    tempdef(else if, NORMAL10)
-                                                        tempdef(else if, BLAST)
-                                                            tempdef(else if, STEAL)
-                                                                tempdef(else if, BURN)
-                                                                    tempdef(else if, SHOCK)
-                                                                        tempdef(else if, FREEZE)
-                                                                            tempdef(else if, ITEM)
-                                                                                tempdef(else if, LAND)
-                                                                                    tempdef(else if, PIT)
-                                                                                        tempdef(else if, LIFESPAN)
-                                                                                            tempdef(else if, LOSE)
-                                                                                                tempdef(else if, TIMEOVER)
-                                                                                                    else if(starts_with(value, "normal"))
-                                                                                                    {
-                                                                                                        get_tail_number(tempInt, value, "normal");
-                                                                                                        newchar->defense[tempInt + STA_ATKS - 1] = defense;
-                                                                                                    }
-                                                                                                    else if(stricmp(value, "ALL") == 0)
-                                                                                                    {
-                                                                                                        for(i = 0; i < max_attack_types; i++)
-                                                                                                        {
-                                                                                                            /*
-                                                                                                            Skip the pit, lifespan, and time over attack types as these are for engine use. Nothing stops an author from defining defense settings for them individually.
-                                                                                                            */
-                                                                                                            if(i != ATK_PIT && i != ATK_TIMEOVER && i != ATK_LIFESPAN && i != ATK_LOSE)
-                                                                                                            {
-                                                                                                                newchar->defense[i] = defense;
-                                                                                                            }
-                                                                                                        }
-                                                                                                    }
+                tempdef(else if, NORMAL2)
+                tempdef(else if, NORMAL3)
+                tempdef(else if, NORMAL4)
+                tempdef(else if, NORMAL5)
+                tempdef(else if, NORMAL6)
+                tempdef(else if, NORMAL7)
+                tempdef(else if, NORMAL8)
+                tempdef(else if, NORMAL9)
+                tempdef(else if, NORMAL10)
+                tempdef(else if, BLAST)
+                tempdef(else if, STEAL)
+                tempdef(else if, BURN)
+                tempdef(else if, SHOCK)
+                tempdef(else if, FREEZE)
+
+                tempdef(else if, BOSS_DEATH)
+                tempdef(else if, ITEM)
+                tempdef(else if, LAND)
+                tempdef(else if, LIFESPAN)
+                tempdef(else if, LOSE)
+                tempdef(else if, PIT)
+                tempdef(else if, TIMEOVER)
+
+                else if(starts_with(value, "normal"))
+                {
+                    get_tail_number(tempInt, value, "normal");
+                    newchar->defense[tempInt + STA_ATKS - 1] = defense;
+                }
+                else if(stricmp(value, "ALL") == 0)
+                {
+                    // Loop over all attack types and apply
+                    // the value setting.
+                    for(i = 0; i < max_attack_types; i++)
+                    {
+                        // Skip types that we only intend for
+                        // engine or script logic use.
+                        if(i == ATK_BOSS_DEATH
+                           || i == ATK_ITEM
+                           || i == ATK_LIFESPAN
+                           || i == ATK_LOSE
+                           || i == ATK_TIMEOVER
+                           || i == ATK_PIT)
+                        {
+                            continue;
+                        }
+
+                        newchar->defense[i] = defense;
+
+                    }
+                }
             }
 #undef tempdef
             break;
@@ -9244,43 +9322,57 @@ s_model *load_cached_model(char *name, char *owner, char unload)
             {
                 value = GET_ARG(1);
                 tempoff(if,         NORMAL,     offense_factors)
-                    tempoff(else if,    NORMAL2,    offense_factors)
-                        tempoff(else if,    NORMAL3,    offense_factors)
-                            tempoff(else if,    NORMAL4,    offense_factors)
-                                tempoff(else if,    NORMAL5,    offense_factors)
-                                    tempoff(else if,    NORMAL6,    offense_factors)
-                                        tempoff(else if,    NORMAL7,    offense_factors)
-                                            tempoff(else if,    NORMAL8,    offense_factors)
-                                                tempoff(else if,    NORMAL9,    offense_factors)
-                                                    tempoff(else if,    NORMAL10,   offense_factors)
-                                                        tempoff(else if,    BLAST,      offense_factors)
-                                                            tempoff(else if,    STEAL,      offense_factors)
-                                                                tempoff(else if,    BURN,       offense_factors)
-                                                                    tempoff(else if,    SHOCK,      offense_factors)
-                                                                        tempoff(else if,    FREEZE,     offense_factors)
-                                                                            tempoff(else if,    ITEM,		offense_factors)
-                                                                                tempoff(else if,    LAND,		offense_factors)
-                                                                                    tempoff(else if,    PIT,		offense_factors)
-                                                                                        tempoff(else if,    LIFESPAN,   offense_factors)
-                                                                                            tempoff(else if,    LOSE,   offense_factors)
-                                                                                                tempoff(else if,    TIMEOVER,   offense_factors)
-                                                                                                    else if(starts_with(value, "normal"))
-                                                                                                    {
-                                                                                                        get_tail_number(tempInt, value, "normal");
-                                                                                                        newchar->offense_factors[tempInt + STA_ATKS - 1] = GET_FLOAT_ARG(2);
-                                                                                                    }
-                                                                                                    else if(stricmp(value, "ALL") == 0)
-                                                                                                    {
-                                                                                                        tempFloat = GET_FLOAT_ARG(2);
-                                                                                                        for(i = 0; i < max_attack_types; i++)
-                                                                                                        {
-                                                                                                            //offense hardly need those, just in case
-                                                                                                            if(i != ATK_PIT && i != ATK_TIMEOVER && i != ATK_LIFESPAN && i != ATK_LOSE)
-                                                                                                            {
-                                                                                                                newchar->offense_factors[i] = tempFloat;
-                                                                                                            }
-                                                                                                        }
-                                                                                                    }
+                tempoff(else if,    NORMAL2,    offense_factors)
+                tempoff(else if,    NORMAL3,    offense_factors)
+                tempoff(else if,    NORMAL4,    offense_factors)
+                tempoff(else if,    NORMAL5,    offense_factors)
+                tempoff(else if,    NORMAL6,    offense_factors)
+                tempoff(else if,    NORMAL7,    offense_factors)
+                tempoff(else if,    NORMAL8,    offense_factors)
+                tempoff(else if,    NORMAL9,    offense_factors)
+                tempoff(else if,    NORMAL10,   offense_factors)
+                tempoff(else if,    BLAST,      offense_factors)
+                tempoff(else if,    STEAL,      offense_factors)
+                tempoff(else if,    BURN,       offense_factors)
+                tempoff(else if,    SHOCK,      offense_factors)
+                tempoff(else if,    FREEZE,     offense_factors)
+
+                tempoff(else if,    BOSS_DEATH, offense_factors)
+                tempoff(else if,    ITEM,       offense_factors)
+                tempoff(else if,    LAND,       offense_factors)
+                tempoff(else if,    LIFESPAN,   offense_factors)
+                tempoff(else if,    LOSE,       offense_factors)
+                tempoff(else if,    PIT,        offense_factors)
+                tempoff(else if,    TIMEOVER,   offense_factors)
+
+                else if(starts_with(value, "normal"))
+                {
+                    get_tail_number(tempInt, value, "normal");
+                    newchar->offense_factors[tempInt + STA_ATKS - 1] = GET_FLOAT_ARG(2);
+                }
+                else if(stricmp(value, "ALL") == 0)
+                {
+                    tempFloat = GET_FLOAT_ARG(2);
+
+                    // Loop over all attack types and apply
+                    // the value setting.
+                    for(i = 0; i < max_attack_types; i++)
+                    {
+                        // Skip types that we only intend for
+                        // engine or script logic use.
+                        if(i == ATK_BOSS_DEATH
+                           || i == ATK_ITEM
+                           || i == ATK_LIFESPAN
+                           || i == ATK_LOSE
+                           || i == ATK_TIMEOVER
+                           || i == ATK_PIT)
+                        {
+                            continue;
+                        }
+
+                        newchar->offense_factors[i] = tempFloat;
+                    }
+                }
             }
 #undef tempoff
             break;
@@ -9906,6 +9998,12 @@ s_model *load_cached_model(char *name, char *owner, char unload)
                 break;
             case CMD_MODEL_TAKEDAMAGESCRIPT:
                 pos += lcmHandleCommandScripts(&arglist, buf + pos, newchar->scripts->takedamage_script, "takedamagescript", filename, 1, 0);
+                break;
+            case CMD_MODEL_ON_BIND_UPDATE_OTHER_TO_SELF_SCRIPT:
+                pos += lcmHandleCommandScripts(&arglist, buf + pos, newchar->scripts->on_bind_update_other_to_self_script, "on_bind_update_other_to_self_script", filename, 1, 0);
+                break;
+            case CMD_MODEL_ON_BIND_UPDATE_SELF_TO_OTHER_SCRIPT:
+                pos += lcmHandleCommandScripts(&arglist, buf + pos, newchar->scripts->on_bind_update_self_to_other_script, "on_bind_update_self_to_other_script", filename, 1, 0);
                 break;
             case CMD_MODEL_ONFALLSCRIPT:
                 pos += lcmHandleCommandScripts(&arglist, buf + pos, newchar->scripts->onfall_script, "onfallscript", filename, 1, 0);
@@ -18173,7 +18271,7 @@ void ent_set_model(entity *ent, char *modelname, int syncAnim)
 }
 
 
-entity *spawn(float x, float z, float a, int direction, char *name, int index, s_model *model)
+entity *spawn(float x, float z, float a, e_direction direction, char *name, int index, s_model *model)
 {
     entity *e = NULL;
     int i, id;
@@ -19355,6 +19453,335 @@ void set_opponent(entity *ent, entity *other)
 
 }
 
+// Caskey, Damon V.
+// 2018-09-16
+//
+// Run a series of verifications to find out if entity can
+// block attack. Return true of block is possible eligible.
+int check_blocking_eligible(entity *ent, entity *other, s_collision_attack *attack)
+{
+    // If guardpoints are set, then find out if they've been depleted.
+    if(ent->modeldata.guardpoints.max)
+    {
+        if(ent->modeldata.guardpoints.current <= 0)
+        {
+            return 0;
+        }
+    }
+
+    // Grappling?
+    if(ent->link)
+    {
+        return 0;
+    }
+
+    //  Airborne?
+    if(inair(ent))
+    {
+        return 0;
+    }
+
+    // Frozen?
+    if(ent->frozen)
+    {
+        return 0;
+    }
+
+    // Falling?
+    if(ent->falling)
+    {
+        return 0;
+    }
+
+    // Attack block breaking exceeds block power?
+    if(ent->defense[attack->attack_type].blockpower)
+    {
+        if(attack->no_block >= ent->defense[attack->attack_type].blockpower)
+        {
+            return 0;
+        }
+    }
+
+    // Attack from behind? Can't block that if
+    // we don't have blockback flag enabled.
+    if(ent->direction == other->direction)
+    {
+        if(!ent->modeldata.blockback)
+        {
+            return 0;
+        }
+    }
+
+    // if there is a blocking threshold? Verify it vs. attack force.
+    if(ent->modeldata.thold)
+    {
+        // Threshold value vs. attack.
+        if(attack->attack_force >= ent->modeldata.thold)
+        {
+            return 0;
+        }
+    }
+
+    // is there a blocking threshhold for the attack type?
+    // Verify it vs. attack force.
+    if(ent->defense[attack->attack_type].blockthreshold)
+    {
+        if(ent->defense[attack->attack_type].blockthreshold > attack->attack_force)
+        {
+            return 0;
+        }
+    }
+
+    // If we made it through all that, then entity can block. Return true.
+    return 1;
+}
+
+// Caskey, Damon V.
+// 2018-09-17
+//
+// AI blocking decision. If AI chooses to
+// block, return true.
+int check_blocking_chance(entity *ent)
+{
+    // If we have nopassiveblock enabled and we're
+    // already blocking, then we want the AI to
+    // keep blocking (like most players would).
+    if(ent->modeldata.nopassiveblock)
+    {
+        if(ent->blocking)
+        {
+           return 1;
+        }
+    }
+
+    // Run random chance against blockodds.
+    if((rand32()&ent->modeldata.blockodds) == 1)
+    {
+        return 1;
+    }
+
+    // If we got this far, we never decided to
+    // block, so return false.
+    return 0;
+}
+
+// Caskey, Damon V.
+// 2018-09-17
+//
+// Decide if entity should perform blocking action.
+int check_blocking_conditions(entity *ent, entity *other, s_collision_attack *attack)
+{
+    e_entity_type entity_type;
+
+    entity_type = ent->modeldata.type;
+
+    // 2018-09-17, we only distinguish between
+    // players and everything else, but let's use
+    // a Switch instead of an IF in case we ever
+    // need to be more nuanced.
+    switch(entity_type)
+    {
+        case TYPE_PLAYER:
+
+            // For players, all we need to know is if they
+            // are in a blocking state. If not we exit.
+            if(!self->blocking)
+            {
+                return 0;
+            }
+
+            // Verify we can block the attack. If so, we can
+            // return true.
+            if(check_blocking_eligible(ent, other, attack))
+            {
+                return 1;
+            }
+
+            break;
+
+        default:
+
+            // No blocking animation?
+            if(!validanim(ent, ANI_BLOCK))
+            {
+                return 0;
+            }
+
+            // Have to be idle.
+            if(!ent->idling)
+            {
+                return 0;
+            }
+
+            // AI can't be preparing to attack.
+            if(ent->attacking != ATTACKING_INACTIVE)
+            {
+                return 0;
+            }
+
+            // AI must decide to block.
+            if(!check_blocking_chance(ent))
+            {
+                return 0;
+            }
+
+            // Verify we can block the attack. If so, we can
+            // return true.
+            if(check_blocking_eligible(ent, other, attack))
+            {
+                return 1;
+            }
+
+            break;
+    }
+
+    return 0;
+}
+
+// Caskey, Damon V.
+// 2018-09-18
+//
+// Verify entity has blockpain and that attack
+// should trigger it.
+int check_blockpain(entity *ent, s_collision_attack *attack)
+{
+    // If we don't have blockpain,
+    // nothing else to do!
+    if(!self->modeldata.blockpain)
+    {
+        return 0;
+    }
+
+    // If blockpain is greater than attack
+    // force, we don't apply it.
+    if(self->modeldata.blockpain > attack->attack_force)
+    {
+        return 0;
+    }
+
+    // If we are in blocking animation or pain
+    // flag is true, then we're elgible for blockpain.
+    // Return true.
+    if(self->animation == self->modeldata.animation[ANI_BLOCK]
+       || self->inpain)
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+// Caskey, Damon V.
+// 2018-09-18
+//
+// Apply primary block settings, animations,
+// actions, and scripts.
+void set_blocking_action(entity *ent, entity *other, s_collision_attack *attack)
+{
+    // Execute the attacker's didhit script with blocked flag.
+    execute_didhit_script(other, ent, attack, 1);
+
+    // Set up blocking action and flag.
+    ent->takeaction = common_block;
+    set_blocking(ent);
+
+    // Stop movement.
+    ent->velocity.x = ent->velocity.z = 0;
+
+    // Enter block animation.
+    ent_set_anim(ent, ANI_BLOCK, 0);
+
+    // Execute our block script.
+    execute_didblock_script(ent, other, attack);
+
+    // If we have guardpoints, then reduce them here.
+    if(ent->modeldata.guardpoints.max > 0)
+    {
+        ent->modeldata.guardpoints.current -= attack->guardcost;
+    }
+
+    // If we have an appropriate blockpain, lets
+    // apply it here.
+    if(check_blockpain(ent, attack))
+    {
+        set_blockpain(self, attack->attack_type, 0);
+    }
+
+    // Blocked hit is still a hit, so
+    // increment the attacker's hit counter.
+    ++other->animation->animhits;
+
+    // Spawn the blocking flash.
+    spawn_attack_flash(ent, attack, attack->blockflash, ent->modeldata.bflash);
+}
+
+// Caskey, Damon V.
+// 2018-09-18
+//
+// Handle flash spawning for hits. Will spawn and prepare an appropriate
+// flash effect entity if conditions are met.
+entity *spawn_attack_flash(entity *ent, s_collision_attack *attack, int attack_flash, int model_flash)
+{
+    int to_spawn;
+    entity *flash;
+
+    // Flash disabled by attack?
+    // We're done. Do nothing and exit.
+    if(attack->no_flash)
+    {
+       return NULL;
+    }
+
+    // If the model has custom flash disabled,
+    // then default to the model's global flash.
+    //
+    // Otherwise we need to see if the custom
+    // attack flash index is valid. If it is, then
+    // we will use it to spawn a flash effect.
+    if(!ent->modeldata.noatflash)
+    {
+        // Valid custom flash index?
+        if(attack->blockflash >= 0)
+        {
+            to_spawn = attack_flash;
+        }
+        else
+        {
+            to_spawn = model_flash;
+        }
+    }
+    else
+    {
+        to_spawn = model_flash;
+    }
+
+    // Spawn the flash at last hit position.
+    flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, DIRECTION_LEFT, NULL, to_spawn, NULL);
+
+    // One last check to make sure we
+    // were able to spawn to flash entity.
+    if(flash)
+    {
+        // Set up basic properties.
+        flash->spawntype    = SPAWN_TYPE_FLASH;
+        flash->base         = lasthit.position.y;
+        flash->autokill     = 1;
+
+        // If flipping enabled, flip the flash based on which
+        // side of entity the hit came from.
+        if(flash->modeldata.toflip)
+        {
+            flash->direction = (lasthit.position.x > ent->position.x);
+        }
+
+        // Run flash's spawn script.
+        execute_onspawn_script(flash);
+
+        return flash;
+    }
+
+    return NULL;
+}
 
 void do_attack(entity *e)
 {
@@ -19363,7 +19790,6 @@ void do_attack(entity *e)
     int force = 0;
     e_blocktype blocktype;
     entity *temp            = NULL;
-    entity *flash           = NULL;    // Used so new flashes can be used
     entity *def             = NULL;
     entity *topowner        = NULL;
     entity *otherowner      = NULL;
@@ -19379,7 +19805,6 @@ void do_attack(entity *e)
 
 #define followed (current_anim!=e->animation)
     static unsigned int new_attack_id = 1;
-    int fdefense_blockthreshold; //max damage that can be blocked for attack type.
 
     // Can't get hit after this
     if(level_completed)
@@ -19439,7 +19864,6 @@ void do_attack(entity *e)
         }
 
         attack = lasthit.attack;
-        fdefense_blockthreshold = (int)self->defense[attack->attack_type].blockthreshold; //max damage that can be blocked for attack type.
         force = attack->attack_force;
 
         // Verify target is alive.
@@ -19611,118 +20035,16 @@ void do_attack(entity *e)
                 self->modeldata.jugglepoints.current = self->modeldata.jugglepoints.current - attack->jugglecost;    //reduce available juggle points.
             }
 
-            //if #053
-            if( !self->modeldata.nopassiveblock && // cant block by itself
-                    validanim(self, ANI_BLOCK) && // of course, move it here to avoid some useless checking
-                    ((self->modeldata.guardpoints.max == 0) || (self->modeldata.guardpoints.max > 0 && self->modeldata.guardpoints.current > 0)) &&
-                    !(self->link ||
-                      inair(self) ||
-                      self->frozen ||
-                      (self->direction == e->direction && self->modeldata.blockback < 1) ||                       // Can't block an attack that is from behind unless blockback flag is enabled
-                      (!self->idling && self->attacking != ATTACKING_INACTIVE)) &&                                                 // Can't block if busy, attack <0 means the character is preparing to attack, he can block during this time
-                    attack->no_block <= self->defense[attack->attack_type].blockpower &&       // If unblockable, will automatically hit
-                    (rand32()&self->modeldata.blockodds) == 1 && // Randomly blocks depending on blockodds (1 : blockodds ratio)
-                    (!self->modeldata.thold || (self->modeldata.thold > 0 && self->modeldata.thold > force)) &&
-                    (!fdefense_blockthreshold ||                                                                //Specific attack type threshold.
-                     (fdefense_blockthreshold > force)))
+            // Blocking the attack?
+            if(check_blocking_conditions(self, e, attack))
             {
-                //execute the didhit script
-                execute_didhit_script(e, self, attack, 1);
-                self->takeaction = common_block;
-                set_blocking(self);
-                self->velocity.x = self->velocity.z = 0;
-                ent_set_anim(self, ANI_BLOCK, 0);
+                set_blocking_action(self, e, attack);
 
-                execute_didblock_script(self, e, attack);
-
-                if(self->modeldata.guardpoints.max > 0)
-                {
-                    self->modeldata.guardpoints.current = self->modeldata.guardpoints.current - attack->guardcost;
-                }
-                ++current_anim->animhits;
-                didblock = 1;    // Used for when playing the block.wav sound
-                // Spawn a flash
-                //if #0531
-                if(!attack->no_flash)
-                {
-                    if(!self->modeldata.noatflash)
-                    {
-                        if(attack->blockflash >= 0)
-                        {
-                            flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, attack->blockflash, NULL);    // custom bflash
-                        }
-                        else
-                        {
-                            flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, ent_list[i]->modeldata.bflash, NULL);    // New block flash that can be smaller
-                        }
-                    }
-                    else
-                    {
-                        flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, self->modeldata.bflash, NULL);
-                    }
-                    //ent_default_init(flash); // initiliaze this because there're no default values now
-
-                    if(flash)
-                    {
-                        flash->spawntype = SPAWN_TYPE_FLASH;
-                        execute_onspawn_script(flash);
-                    }
-                }
-                //end of if #0531
+                // We'll need to know if we blocked or not
+                // for some other logic blocks below.
+                didblock = 1;
             }
-            else if((self->modeldata.nopassiveblock || self->modeldata.type == TYPE_PLAYER) &&  // can block by itself
-                    self->blocking &&  // of course he must be blocking
-                    ((self->modeldata.guardpoints.max == 0) || (self->modeldata.guardpoints.max > 0 && self->modeldata.guardpoints.current > 0)) &&
-                    !((self->direction == e->direction && self->modeldata.blockback < 1) || self->frozen) &&   // Can't block if facing the wrong direction (unless blockback flag is enabled) or frozen in the block animation or opponent is a projectile
-                    attack->no_block <= self->defense[attack->attack_type].blockpower &&    // Make sure you are actually blocking and that the attack is blockable
-                    (!self->modeldata.thold ||
-                     (self->modeldata.thold > 0 &&
-                      self->modeldata.thold > force)) &&
-                    (!self->defense[attack->attack_type].blockthreshold ||                   //Specific attack type threshold.
-                     (self->defense[attack->attack_type].blockthreshold > force)))
-            {
-                // Only block if the attack is less than the players threshold
-                //execute the didhit script
-                execute_didhit_script(e, self, attack, 1);
-                if(self->modeldata.guardpoints.max > 0)
-                {
-                    self->modeldata.guardpoints.current = self->modeldata.guardpoints.current - attack->guardcost;
-                }
-                ++current_anim->animhits;
-                didblock = 1;    // Used for when playing the block.wav sound
-
-                if(self->modeldata.blockpain && self->modeldata.blockpain <= force && self->animation == self->modeldata.animation[ANI_BLOCK]) //Blockpain 1 and in block animation?
-                {
-                    set_blockpain(self, attack->attack_type, 0);
-                }
-                execute_didblock_script(self, e, attack);
-
-                // Spawn a flash
-                if(!attack->no_flash)
-                {
-                    if(!self->modeldata.noatflash)
-                    {
-                        if(attack->blockflash >= 0)
-                        {
-                            flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, attack->blockflash, NULL);    // custom bflash
-                        }
-                        else
-                        {
-                            flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, ent_list[i]->modeldata.bflash, NULL);    // New block flash that can be smaller
-                        }
-                    }
-                    else
-                    {
-                        flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, self->modeldata.bflash, NULL);
-                    }
-                    //ent_default_init(flash); // initiliaze this because there're no default values now
-                    if(flash)
-                    {
-                        flash->spawntype = SPAWN_TYPE_FLASH;
-                        execute_onspawn_script(flash);
-                    }
-                }
-            }
+            // Counter the attack?
             else if(self->animation->counterrange &&	// Has counter range?
                     (self->animpos >= self->animation->counterrange->frame.min && self->animpos <= self->animation->counterrange->frame.max) &&  // Current frame within counter range frames?
                     !self->frozen &&
@@ -19776,63 +20098,26 @@ void do_attack(entity *e)
                         self->attack_id_incoming = current_attack_id;
                     }
 
-                    if(!attack->no_flash)
-                    {
-                        if(!self->modeldata.noatflash)
-                        {
-                            if(attack->blockflash >= 0)
-                            {
-                                flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, attack->blockflash, NULL);    // custom bflash
-                            }
-                            else
-                            {
-                                flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, ent_list[i]->modeldata.bflash, NULL);    // New block flash that can be smaller
-                            }
-                        }
-                        else
-                        {
-                            flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, self->modeldata.bflash, NULL);
-                        }
-                        //ent_default_init(flash); // initiliaze this because there're no default values now
-                        if(flash)
-                        {
-                            flash->spawntype = SPAWN_TYPE_FLASH;
-                            execute_onspawn_script(flash);
-                        }
-                    }
+                    // Flash spawn.
+                    spawn_attack_flash(self, attack, attack->blockflash, self->modeldata.bflash);
             }
             else if(self->takedamage(e, attack, 0))
             {
-                // Didn't block so go ahead and take the damage
+                // This is the block for normal hits. The
+                // hit was not blocked, countered, or
+                // otherwise nullified, and this entity
+                // has takedamage() function. Let's
+                // process the hit.
+
                 execute_didhit_script(e, self, attack, 0);
                 ++e->animation->animhits;
 
                 e->lasthit = self;
 
-                // Spawn a flash
-                if(!attack->no_flash)
-                {
-                    if(!self->modeldata.noatflash)
-                    {
-                        if(attack->hitflash >= 0)
-                        {
-                            flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, attack->hitflash, NULL);
-                        }
-                        else
-                        {
-                            flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, e->modeldata.flash, NULL);
-                        }
-                    }
-                    else
-                    {
-                        flash = spawn(lasthit.position.x, lasthit.position.z, lasthit.position.y, 0, NULL, self->modeldata.flash, NULL);
-                    }
-                    if(flash)
-                    {
-                        flash->spawntype = SPAWN_TYPE_FLASH;
-                        execute_onspawn_script(flash);
-                    }
-                }
+                // Flash spawn.
+                spawn_attack_flash(self, attack, attack->hitflash, self->modeldata.flash);
+
+
                 topowner->combotime = _time + combodelay; // well, add to its owner's combo
 
                 if(e->pausetime < _time || (inair(e) && !equalairpause))        // if equalairpause is set, inair(e) is nolonger a condition for extra pausetime
@@ -19853,22 +20138,16 @@ void do_attack(entity *e)
             }
             else
             {
+                // If we made it to this block the hit was
+                // not countered or blocked, but the entity
+                // does not have a takedamage() function. It
+                // therefore must be a type that is meant
+                // to ignore hits.
+
                 didhit = 0;
                 continue;
             }
             // end of if #053
-
-            // if #054
-            if(flash)
-            {
-                if(flash->modeldata.toflip)
-                {
-                    flash->direction = (e->position.x > self->position.x);    // Now the flash will flip depending on which side the attacker is on
-                }
-
-                flash->base = lasthit.position.y;
-                flash->autokill = 2;
-            }//end of if #054
 
             // 2007 3 24, hmm, def should be like this
             if(didblock && !def)
@@ -19946,7 +20225,7 @@ void do_attack(entity *e)
         }
 
         // New blocking checks
-        //04/27/2008 Damon Caskey: Added checks for defense property specfic blockratio and type. Could probably use some cleaning.
+        //04/27/2008 Damon Caskey: Added checks for defense property specific blockratio and type. Could probably use some cleaning.
         if(didblock && level->nohurt == DAMAGE_FROM_ENEMY_ON)
         {
             if(blockratio || def->defense[attack->attack_type].blockratio) // Is damage reduced?
@@ -20119,6 +20398,13 @@ bool check_landframe(entity *ent)
     {
         return 0;
     }
+
+    // Can't be bound with a landframe override.
+    if(check_bind_override(ent, BINDING_OVERRIDING_LANDFRAME))
+    {
+        return 0;
+    }
+
     // Can't be passed over current animation's frame count.
     if(ent->animation->landframe->frame > ent->animation->numframes)
     {
@@ -20324,76 +20610,84 @@ void check_gravity(entity *e)
 
             // UTunnels: tossv <= 0 means land, while >0 means still rising, so
             // you wont be stopped if you are passing the edge of a wall
-            if( (self->position.y <= self->base || !inair(self)) && self->velocity.y <= 0 )
+            if( self->position.y <= self->base || !inair(self))
             {
-                self->position.y = self->base;
-                self->falling = 0;
-
-                if ( self->hitwall ) self->hitwall = 0;
-
-                //self->projectile = 0;
-                // cust dust entity
-                if(self->modeldata.dust.fall_land >= 0 && self->velocity.y < -1 && self->drop)
+                // 0+ means still rising. We need to be falling.
+                if(self->velocity.y <=0)
                 {
-                    dust = spawn(self->position.x, self->position.z, self->position.y, self->direction, NULL, self->modeldata.dust.fall_land, NULL);
-                    if(dust)
+                    // No bind target, or binding set to ignore fall lands.
+                    if(!check_bind_override(self, BINDING_OVERRIDING_FALL_LAND))
                     {
-                        dust->spawntype = SPAWN_TYPE_DUST_FALL;
-                        dust->base = self->position.y;
-                        dust->autokill = 2;
-                        execute_onspawn_script(dust);
+                        self->position.y = self->base;
+                        self->falling = 0;
+
+                        if ( self->hitwall ) self->hitwall = 0;
+
+                        //self->projectile = 0;
+                        // cust dust entity
+                        if(self->modeldata.dust.fall_land >= 0 && self->velocity.y < -1 && self->drop)
+                        {
+                            dust = spawn(self->position.x, self->position.z, self->position.y, self->direction, NULL, self->modeldata.dust.fall_land, NULL);
+                            if(dust)
+                            {
+                                dust->spawntype = SPAWN_TYPE_DUST_FALL;
+                                dust->base = self->position.y;
+                                dust->autokill = 2;
+                                execute_onspawn_script(dust);
+                            }
+                        }
+
+                        // bounce/quake
+                        if(tobounce(self) && self->modeldata.bounce)
+                        {
+                            int i;
+                            self->velocity.x /= self->animation->bounce;
+                            self->velocity.z /= self->animation->bounce;
+                            toss(self, (-self->velocity.y) / self->animation->bounce);
+                            if(level && !(self->modeldata.noquake & NO_QUAKE))
+                            {
+                                level->quake = 4;    // Don't shake if specified
+                            }
+                            if(SAMPLE_FALL >= 0)
+                            {
+                                sound_play_sample(SAMPLE_FALL, 0, savedata.effectvol, savedata.effectvol, 100);
+                            }
+                            if(self->modeldata.type & TYPE_PLAYER)
+                            {
+                                if (savedata.joyrumble[self->playerindex]) control_rumble(self->playerindex, 1, 100 * (int)self->velocity.y / 2);
+                            }
+                            for(i = 0; i < MAX_PLAYERS; i++)
+                            {
+                                if (savedata.joyrumble[i]) control_rumble(i, 1, 75 * (int)self->velocity.y / 2);
+                            }
+                        }
+                        else if((!self->animation->move[self->animpos]->base || self->animation->move[self->animpos]->base < 0) &&
+                                (!self->animation->move[self->animpos]->axis.y || self->animation->move[self->animpos]->axis.y <= 0))
+                        {
+                            self->velocity.x = 0;
+                            self->velocity.z = 0;
+                            self->velocity.y = 0;
+                        }
+                        else
+                        {
+                            self->velocity.y = 0;
+                        }
+
+                        if(plat && !self->landed_on_platform && self->position.y <= plat->position.y + plat->animation->platform[plat->animpos][PLATFORM_HEIGHT])
+                        {
+                            self->landed_on_platform = plat;
+                        }
+
+                        // Set landing frame if we have one.
+                        check_landframe(self);
+
+                        // Taking damage on a landing?
+                        checkdamageonlanding();
+
+                        // in case landing, set hithead to NULL
+                        self->hithead = NULL;
                     }
                 }
-
-                // bounce/quake
-                if(tobounce(self) && self->modeldata.bounce)
-                {
-                    int i;
-                    self->velocity.x /= self->animation->bounce;
-                    self->velocity.z /= self->animation->bounce;
-                    toss(self, (-self->velocity.y) / self->animation->bounce);
-                    if(level && !(self->modeldata.noquake & NO_QUAKE))
-                    {
-                        level->quake = 4;    // Don't shake if specified
-                    }
-                    if(SAMPLE_FALL >= 0)
-                    {
-                        sound_play_sample(SAMPLE_FALL, 0, savedata.effectvol, savedata.effectvol, 100);
-                    }
-                    if(self->modeldata.type & TYPE_PLAYER)
-                    {
-                        if (savedata.joyrumble[self->playerindex]) control_rumble(self->playerindex, 1, 100 * (int)self->velocity.y / 2);
-                    }
-                    for(i = 0; i < MAX_PLAYERS; i++)
-                    {
-                        if (savedata.joyrumble[i]) control_rumble(i, 1, 75 * (int)self->velocity.y / 2);
-                    }
-                }
-                else if((!self->animation->move[self->animpos]->base || self->animation->move[self->animpos]->base < 0) &&
-                        (!self->animation->move[self->animpos]->axis.y || self->animation->move[self->animpos]->axis.y <= 0))
-                {
-                    self->velocity.x = 0;
-                    self->velocity.z = 0;
-                    self->velocity.y = 0;
-                }
-                else
-                {
-                    self->velocity.y = 0;
-                }
-
-                if(plat && !self->landed_on_platform && self->position.y <= plat->position.y + plat->animation->platform[plat->animpos][PLATFORM_HEIGHT])
-                {
-                    self->landed_on_platform = plat;
-                }
-
-                // Set landing frame if we have one.
-                check_landframe(self);
-
-                // Taking damage on a landing?
-                checkdamageonlanding();
-
-                // in case landing, set hithead to NULL
-                self->hithead = NULL;
             }// end of if - land checking
         }// end of if  - in-air checking
         if(self->toss_time <= _time)
@@ -21305,82 +21599,245 @@ void damage_recursive(entity *target)
 
 void adjust_bind(entity *e)
 {
-    if(e->binding.ent)
+    #define ADJUST_BIND_SET_ANIM_RESETABLE 1
+    #define ADJUST_BIND_NO_FRAME_MATCH -1
+
+    // If there is no binding
+    // target, just get out.
+    if(!e->binding.ent)
     {
-        if(e->binding.ani_bind)
+        return;
+    }
+
+    // Run bind update script on the bind target.
+    execute_on_bind_update_other_to_self(e->binding.ent, e, &e->binding);
+
+    // Run bind update script on *e (entity performing bind).
+    execute_on_bind_update_self_to_other(e, e->binding.ent, &e->binding);
+
+    // Animation match flag in use?
+    if(e->binding.matching)
+    {
+        e_animations    animation;
+        int             frame;
+
+        // If a defined value is requested,
+        // use the binding member value.
+        // Otherwise use target's current value.
+        if(e->binding.matching & BINDING_MATCHING_ANIMATION_DEFINED)
         {
-            if(e->animnum != e->binding.ent->animnum)
+            animation = e->binding.animation;
+        }
+        else
+        {
+            animation = e->binding.ent->animnum;
+        }
+
+        // Are we NOT currently playing the target animation?
+        if(e->animnum != animation)
+        {
+            // If we don't have the target animation
+            // and animation kill flag is set, then
+            // we kill ourselves and exit the function.
+            if(!validanim(e, animation))
             {
-                if(!validanim(e, e->binding.ent->animnum))
+                // Don't have the animation? Kill ourself.
+                if(e->binding.matching & BINDING_MATCHING_ANIMATION_REMOVE)
                 {
-                    if(e->binding.ani_bind & 4)
+                    kill_entity(e);
+                }
+
+                // Cancel the bind and exit.
+                e->binding.ent = NULL;
+                return;
+            }
+
+            // Made it this far, we must have the target
+            // animation, so let's apply it.
+            ent_set_anim(e, animation, ADJUST_BIND_SET_ANIM_RESETABLE);
+        }
+
+        // If a defined value is requested,
+        // use the binding member value.
+        // If target value is requested use
+        // target's current value (duh).
+        // if no frame match at all requested
+        // then set ADJUST_BIND_NO_FRAME_MATCH
+        // so frame matching logic is skipped.
+        if(e->binding.matching & BINDING_MATCHING_FRAME_DEFINED)
+        {
+            frame = e->binding.animation;
+        }
+        else if(e->binding.matching & BINDING_MATCHING_FRAME_TARGET)
+        {
+            frame = e->binding.ent->animpos;
+        }
+        else
+        {
+            frame = ADJUST_BIND_NO_FRAME_MATCH;
+        }
+
+        // Any frame match flag set?
+        if(frame != ADJUST_BIND_NO_FRAME_MATCH)
+        {
+            // Are we NOT currently playing the target frame?
+            if(e->animpos != frame)
+            {
+                // If we don't have the frame and frame kill flag is
+                // set, kill ourselves.
+                if(e->animation[e->animnum].numframes < frame)
+                {
+                    if(e->binding.matching & BINDING_MATCHING_FRAME_REMOVE)
                     {
                         kill_entity(e);
                     }
+
+                    // Cancel the bind and exit.
                     e->binding.ent = NULL;
                     return;
                 }
-                ent_set_anim(e, e->binding.ent->animnum, 1);
-            }
-            if(e->animpos != e->binding.ent->animpos && e->binding.ani_bind & 2)
-            {
-                update_frame(e, e->binding.ent->animpos);
-            }
-        }
-        if (e->binding.bind_toggle.z) e->position.z = e->binding.ent->position.z + e->binding.offset.z;
-        if (e->binding.bind_toggle.y) e->position.y = e->binding.ent->position.y + e->binding.offset.y;
-        e->sortid = e->binding.ent->sortid + e->binding.sortid;
 
-        switch(e->binding.direction)
-        {
-        case DIRECTION_ADJUST_NONE:
-            if(e->binding.ent->direction == DIRECTION_RIGHT)
-            {
-                if (e->binding.bind_toggle.x) e->position.x = e->binding.ent->position.x + e->binding.offset.x;
+                // Made it this far, we must have the target
+                // frame, so let's apply it.
+                update_frame(e, frame);
             }
-            else
-            {
-                if (e->binding.bind_toggle.x) e->position.x = e->binding.ent->position.x - e->binding.offset.x;
-            }
-            break;
-        case DIRECTION_ADJUST_SAME:
-            e->direction = e->binding.ent->direction;
-            if(e->binding.ent->direction == DIRECTION_RIGHT)
-            {
-                if (e->binding.bind_toggle.x) e->position.x = e->binding.ent->position.x + e->binding.offset.x;
-            }
-            else
-            {
-                if (e->binding.bind_toggle.x) e->position.x = e->binding.ent->position.x - e->binding.offset.x;
-            }
-            break;
-        case DIRECTION_ADJUST_OPPOSITE:
-            e->direction = !e->binding.ent->direction;
-            if(e->binding.ent->direction == DIRECTION_RIGHT)
-            {
-                if (e->binding.bind_toggle.x) e->position.x = e->binding.ent->position.x + e->binding.offset.x;
-            }
-            else
-            {
-                if (e->binding.bind_toggle.x) e->position.x = e->binding.ent->position.x - e->binding.offset.x;
-            }
-            break;
-        case DIRECTION_ADJUST_RIGHT:
-            e->direction = DIRECTION_RIGHT;
-            if (e->binding.bind_toggle.x) e->position.x = e->binding.ent->position.x + e->binding.offset.x;
-            break;
-        case DIRECTION_ADJUST_LEFT:
-            e->direction = DIRECTION_LEFT;
-            if (e->binding.bind_toggle.x) e->position.x = e->binding.ent->position.x + e->binding.offset.x;
-            break;
-        default:
-            if (e->binding.bind_toggle.x) e->position.x = e->binding.ent->position.x + e->binding.offset.x;
-            break;
-            // the default is no change :), just give a value of 12345 or so
         }
     }
+
+    // Apply sort ID adjustment.
+    e->sortid = e->binding.ent->sortid + e->binding.sortid;
+
+    // Apply direction adjustment.
+    switch(e->binding.direction)
+    {
+        default:
+        case DIRECTION_ADJUST_NONE:
+
+            break;
+
+        case DIRECTION_ADJUST_SAME:
+
+            e->direction = e->binding.ent->direction;
+
+            break;
+
+        case DIRECTION_ADJUST_OPPOSITE:
+
+            e->direction = !e->binding.ent->direction;
+
+            break;
+
+        case DIRECTION_ADJUST_RIGHT:
+
+            e->direction = DIRECTION_RIGHT;
+
+            break;
+
+        case DIRECTION_ADJUST_LEFT:
+
+            e->direction = DIRECTION_LEFT;
+
+            break;
+    }
+
+
+    // If binding is enabled on a given axis, then
+    // apply offset and set position accordingly.
+
+    switch(e->binding.positioning.z)
+    {
+        case BINDING_POSITIONING_TARGET:
+
+            e->position.z = e->binding.ent->position.z + e->binding.offset.z;
+
+            break;
+
+        case BINDING_POSITIONING_LEVEL:
+
+            e->position.z = e->binding.offset.z;
+
+            break;
+
+        case BINDING_POSITIONING_NONE:
+        default:
+
+            // Leave position as-is.
+            break;
+    }
+
+    switch(e->binding.positioning.y)
+    {
+        case BINDING_POSITIONING_TARGET:
+
+            e->position.y = e->binding.ent->position.y + e->binding.offset.y;
+
+            break;
+
+        case BINDING_POSITIONING_LEVEL:
+
+            e->position.y = e->binding.offset.y;
+
+            break;
+
+        case BINDING_POSITIONING_NONE:
+        default:
+
+            // Leave position as-is.
+            break;
+    }
+
+    switch(e->binding.positioning.x)
+    {
+        case BINDING_POSITIONING_TARGET:
+
+            // For X axis, we'll need to adjust differently based
+            // on the position relationship with binding target.
+
+            if(e->binding.ent->direction == DIRECTION_RIGHT)
+            {
+                e->position.x = e->binding.ent->position.x + e->binding.offset.x;
+            }
+            else
+            {
+                e->position.x = e->binding.ent->position.x - e->binding.offset.x;
+            }
+
+            break;
+
+        case BINDING_POSITIONING_LEVEL:
+
+            e->position.x = e->binding.offset.x;
+
+            break;
+
+        case BINDING_POSITIONING_NONE:
+        default:
+
+            // Leave position as-is.
+            break;
+    }
+
+    #undef ADJUST_BIND_SET_ANIM_RESETABLE
+    #undef ADJUST_BIND_NO_FRAME_MATCH
 }
 
+// Caskey, Damon V.
+// 2018-09-08
+//
+// Return true if the target entity has a valid
+// bind target and match for the override argument.
+int check_bind_override(entity *ent, e_binding_overriding overriding)
+{
+    if(ent->binding.ent)
+    {
+        if(ent->binding.overriding & overriding)
+        {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
 
 void check_move(entity *e)
 {
@@ -22486,50 +22943,67 @@ int set_riseattack(entity *iRiseattack, int type, int reset)
     return 1;
 }
 
-int set_blockpain(entity *iBlkpain, int type, int reset)
+int set_blockpain(entity *ent, e_attack_types attack_type, int reset)
 {
-    int blockpain = 0;
+    e_animations animation;
 
-    if(type < 0 || type >= max_attack_types)
+    // If attack type is out of bounds we
+    // just use normal.
+    if(attack_type < ATK_NORMAL || attack_type >= max_attack_types)
     {
-        type = 0;
+        attack_type = ATK_NORMAL;
     }
 
-    if ( iBlkpain->inbackpain ) blockpain = animbackblkpains[type];
-    else blockpain = animblkpains[type];
+    // In front or back?
+    if (ent->inbackpain)
+    {
+        animation = animbackblkpains[attack_type];
+    }
+    else
+    {
+        animation = animblkpains[attack_type];
+    }
 
-    if(validanim(iBlkpain, blockpain))
+    if(validanim(ent, animation))
     {
-        ent_set_anim(iBlkpain, blockpain, reset);
+        ent_set_anim(ent, animation, reset);
     }
-    else if( iBlkpain->inbackpain && validanim(iBlkpain, animbackblkpains[0]) )
+    else if( ent->inbackpain && validanim(ent, animbackblkpains[ATK_NORMAL]) )
     {
-        ent_set_anim(iBlkpain, animbackblkpains[0], reset);
+        ent_set_anim(ent, animbackblkpains[ATK_NORMAL], reset);
     }
-    else if( validanim(iBlkpain, animblkpains[type]) )
+    else if(validanim(ent, animblkpains[attack_type]))
     {
-        if ( iBlkpain->inbackpain ) reset_backpain(iBlkpain);
-        iBlkpain->inbackpain = 0;
-        ent_set_anim(iBlkpain, animblkpains[type], reset);
+        if (ent->inbackpain)
+        {
+            reset_backpain(ent);
+        }
+
+        ent->inbackpain = 0;
+        ent_set_anim(ent, animblkpains[attack_type], reset);
     }
-    else if(validanim(iBlkpain, animblkpains[0]))
+    else if(validanim(ent, animblkpains[ATK_NORMAL]))
     {
-        if ( iBlkpain->inbackpain ) reset_backpain(iBlkpain);
-        iBlkpain->inbackpain = 0;
-        ent_set_anim(iBlkpain, animblkpains[0], reset);
+        if (ent->inbackpain)
+        {
+            reset_backpain(ent);
+        }
+
+        ent->inbackpain = 0;
+        ent_set_anim(ent, animblkpains[ATK_NORMAL], reset);
     }
     else
     {
         return 0;
     }
 
-    iBlkpain->takeaction = common_block;
+    ent->takeaction = common_block;
     set_blocking(self);
-    iBlkpain->inpain = 1;
-    iBlkpain->rising = 0;
-    iBlkpain->riseattacking = 0;
-    iBlkpain->ducking = DUCK_INACTIVE;
-    ent_set_anim(iBlkpain, animblkpains[type], reset);
+    ent->inpain = 1;
+    ent->rising = 0;
+    ent->riseattacking = 0;
+    ent->ducking = DUCK_INACTIVE;
+    ent_set_anim(ent, animblkpains[attack_type], reset);
     return 1;
 }
 
@@ -28808,13 +29282,28 @@ int check_energy(e_cost_check which, int ani)
         energycost = *self->modeldata.animation[ani]->energycost;
     }
 
-    //if (!self->modeldata.animation[ani]->energycost) return TRUE;
+    // Get entity type.
+    type	   = self->modeldata.type;
+
+    // If we're bind and special is overridden, then
+    // return false.
+    if(type & (TYPE_ENEMY  | TYPE_NPC))
+    {
+        if(check_bind_override(self, BINDING_OVERRIDING_SPECIAL_AI))
+        {
+            return FALSE;
+        }
+    }
+    else if(type & TYPE_PLAYER)
+    {
+        if(check_bind_override(self, BINDING_OVERRIDING_SPECIAL_PLAYER))
+        {
+            return FALSE;
+        }
+    }
 
     if(self->modeldata.animation[ani])
     {
-        // Get entity type.
-        type	   = self->modeldata.type;
-
         // Caskey, Damon V.
         // 2010-05-08
         //
@@ -31286,7 +31775,7 @@ void kill_all_enemies()
     entity *tmpself = NULL;
 
     attack = emptyattack;
-	attack.attack_type = ATK_NORMAL;
+	attack.attack_type = ATK_BOSS_DEATH;
     //attack.attack_type = max_attack_types - 1;
     attack.dropv.y = default_model_dropv.y;
     attack.dropv.x = default_model_dropv.x;

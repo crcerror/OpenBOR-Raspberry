@@ -469,6 +469,7 @@ typedef enum //Animations
     2013-12-27
     */
 
+    ANI_NONE,               // To indicate a blank or no animation at all.
     ANI_IDLE,
     ANI_WALK,
     ANI_JUMP,
@@ -890,13 +891,16 @@ typedef enum
     ARG_INT
 } e_arg_types;
 
+
+// Caskey, Damon V.
+// 2013-12-27
+//
+// Attack types. If more types are added,
+// don't forget to add them to script
+// access and account for them in the
+// model load logic.
 typedef enum
 {
-    /*
-    Attack type enum
-    Damon V. Caskey
-    2013-12-27
-    */
     ATK_NONE            = -1,   // When we want no attack at all, such as damage_on_landing's default.
     ATK_NORMAL,
     ATK_NORMAL1			= ATK_NORMAL,
@@ -914,13 +918,22 @@ typedef enum
     ATK_NORMAL8,
     ATK_NORMAL9,
     ATK_NORMAL10,
-    ATK_ITEM,
-    ATK_LAND,
-    ATK_PIT,
-    ATK_LIFESPAN,
-    ATK_LOSE,
-    ATK_TIMEOVER,
-    MAX_ATKS,                       //Default max attack types (must be below all attack types in enum to get correct value)
+
+    // For engine and script use. These are
+    // applied automatically by various
+    // conditions or intended for script logic.
+    ATK_BOSS_DEATH, // KO leftover enemies when boss is defeated.
+    ATK_ITEM,       // Scripting item logic. Item "attacks" entity that collects it.
+    ATK_LAND,       // Touching ground during a damage on landing fall.
+    ATK_LIFESPAN,   // Entity's lifespan timer expires.
+    ATK_LOSE,       // Players (with lose animation) when level time expires.
+    ATK_PIT,        // Entity falls into a pit and reaches specified depth.
+    ATK_TIMEOVER,   // Players (without lose animation) when level time expires.
+
+    // Default max attack types (must
+    // be below all attack types in enum
+    // to get correct value)
+    MAX_ATKS,
     STA_ATKS        = (MAX_ATKS-10)
 } e_attack_types;
 
@@ -1124,6 +1137,47 @@ typedef enum
     DIRECTION_LEFT,
     DIRECTION_RIGHT
 } e_direction;
+
+typedef enum
+{
+    // These must be kept in the current order
+    // to ensure backward compatibility with
+    // modules that used magic numbers before
+    // constants were available.
+
+    BINDING_MATCHING_NONE               = 0,
+    BINDING_MATCHING_ANIMATION_TARGET   = 1,
+    BINDING_MATCHING_FRAME_TARGET       = 2,
+    BINDING_MATCHING_ANIMATION_REMOVE   = 4,
+    BINDING_MATCHING_FRAME_REMOVE       = 6,
+
+    BINDING_MATCHING_ANIMATION_DEFINED  = 8,
+    BINDING_MATCHING_FRAME_DEFINED      = 10
+} e_binding_animation;
+
+typedef enum
+{
+    // These must be kept in the current order
+    // to ensure backward compatibility with
+    // modules that used magic numbers before
+    // constants were available.
+
+    BINDING_POSITIONING_NONE,
+    BINDING_POSITIONING_TARGET,
+    BINDING_POSITIONING_LEVEL
+} e_binding_positioning;
+
+typedef enum
+{
+    // Double each value so we can use
+    // bitwise logic (0, 1, 2, 4, 8...).
+
+    BINDING_OVERRIDING_NONE             = 0,
+    BINDING_OVERRIDING_FALL_LAND        = 1,
+    BINDING_OVERRIDING_LANDFRAME        = 2,
+    BINDING_OVERRIDING_SPECIAL_AI       = 4,
+    BINDING_OVERRIDING_SPECIAL_PLAYER   = 8
+} e_binding_overriding;
 
 typedef enum
 {
@@ -1939,6 +1993,8 @@ typedef struct
     Script         *update_script;                  //execute when update_ents
     Script         *think_script;                   //execute when entity thinks.
     Script         *takedamage_script;              //execute when taking damage.
+    Script         *on_bind_update_other_to_self_script;   //execute when adjust_bind runs, for the bind target entity.
+    Script         *on_bind_update_self_to_other_script;   //execute when adjust_bind runs, for the bound entity.
     Script         *ondeath_script;                 //execute when killed in game.
     Script         *onkill_script;                  //execute when removed from play.
     Script         *onpain_script;                  //Execute when put in pain animation.
@@ -2254,7 +2310,6 @@ typedef struct
     s_axis_principal_float        velocity;       // x,a,z velocity setting.
 } s_jump;
 
-
 // Caskey, Damon V.
 // 2013-12-17
 //
@@ -2262,12 +2317,16 @@ typedef struct
 // of entity to a target entity.
 typedef struct
 {
-    unsigned int      ani_bind;       // Animation binding type.
-    int               sortid;         // Relative binding sortid. Default = -1
-    s_axis_principal_int bind_toggle;    // Toggle binding on X, Y and Z axis.
-    s_axis_principal_int  offset;         // x,y,z offset.
-    e_direction_adjust      direction;      // Direction force
-    struct entity *ent;                     // Entity to bind.
+    unsigned int            matching;       // Animation binding type.
+    int                     tag;            // User data.
+    int                     sortid;         // Relative binding sortid. Default = -1
+    int                     frame;          // Frame to match (only if requested in matching).
+    e_binding_overriding    overriding;     // Override specific AI behaviors while in bind (fall land, drop frame, specials, etc).
+    e_animations            animation;      // Animation to match (only if requested in matching).
+    s_axis_principal_int    positioning;    // Toggle binding on X, Y and Z axis.
+    s_axis_principal_int    offset;         // x,y,z offset.
+    e_direction_adjust      direction;      // Direction force.
+    struct entity           *ent;           // Entity subject will bind itself to.
 } s_bind;
 
 typedef struct
@@ -2743,6 +2802,13 @@ typedef struct ArgList
 
 int is_frozen(entity *e);
 void unfrozen(entity *e);
+void    adjust_bind(entity *e);
+int     check_bind_override(entity *ent, e_binding_overriding overriding);
+int     check_blocking_chance(entity *ent);
+int     check_blocking_conditions(entity *ent, entity *other, s_collision_attack *attack);
+int     check_blocking_eligible(entity *ent, entity *other, s_collision_attack *attack);
+int     check_blockpain(entity *ent, s_collision_attack *attack);
+void    set_blocking_action(entity *ent, entity *other, s_collision_attack *attack);
 int     buffer_pakfile(char *filename, char **pbuffer, size_t *psize);
 size_t  ParseArgs(ArgList *list, char *input, char *output);
 int     getsyspropertybyindex(ScriptVariant *var, int index);
@@ -2750,28 +2816,30 @@ int     changesyspropertybyindex(int index, ScriptVariant *value);
 int     load_script(Script *script, char *path);
 void    init_scripts();
 void    load_scripts();
-void    execute_animation_script    (entity *ent);
-void    execute_takedamage_script   (entity *ent, entity *other, s_collision_attack *attack);
-void    execute_ondeath_script      (entity *ent, entity *other, s_collision_attack *attack);
-void    execute_onkill_script       (entity *ent);
-void    execute_onpain_script       (entity *ent, int iType, int iReset);
-void    execute_onfall_script       (entity *ent, entity *other, s_collision_attack *attack);
-void    execute_inhole_script       (entity *ent, s_terrain *hole, int index);
-void    execute_onblocks_script     (entity *ent);
-void    execute_onblockw_script     (entity *ent, s_terrain *wall, int index, e_plane plane);
-void    execute_onblockp_script     (entity *ent, int plane, entity *platform);
-void    execute_onblocko_script     (entity *ent, int plane, entity *other);
-void    execute_onblockz_script     (entity *ent);
-void    execute_onblocka_script     (entity *ent, entity *other);
-void    execute_onmovex_script      (entity *ent);
-void    execute_onmovez_script      (entity *ent);
-void    execute_onmovea_script      (entity *ent);
-void    execute_didblock_script     (entity *ent, entity *other, s_collision_attack *attack);
-void    execute_ondoattack_script   (entity *ent, entity *other, s_collision_attack *attack, e_exchange which, int attack_id);
-void    execute_updateentity_script (entity *ent);
-void    execute_think_script        (entity *ent);
-void    execute_didhit_script       (entity *ent, entity *other, s_collision_attack *attack, int blocked);
-void    execute_onspawn_script      (entity *ent);
+void    execute_animation_script                (entity *ent);
+void    execute_takedamage_script               (entity *ent, entity *other, s_collision_attack *attack);
+void    execute_on_bind_update_other_to_self    (entity *ent, entity *other, s_bind *binding);
+void    execute_on_bind_update_self_to_other    (entity *ent, entity *other, s_bind *binding);
+void    execute_ondeath_script                  (entity *ent, entity *other, s_collision_attack *attack);
+void    execute_onkill_script                   (entity *ent);
+void    execute_onpain_script                   (entity *ent, int iType, int iReset);
+void    execute_onfall_script                   (entity *ent, entity *other, s_collision_attack *attack);
+void    execute_inhole_script                   (entity *ent, s_terrain *hole, int index);
+void    execute_onblocks_script                 (entity *ent);
+void    execute_onblockw_script                 (entity *ent, s_terrain *wall, int index, e_plane plane);
+void    execute_onblockp_script                 (entity *ent, int plane, entity *platform);
+void    execute_onblocko_script                 (entity *ent, int plane, entity *other);
+void    execute_onblockz_script                 (entity *ent);
+void    execute_onblocka_script                 (entity *ent, entity *other);
+void    execute_onmovex_script                  (entity *ent);
+void    execute_onmovez_script                  (entity *ent);
+void    execute_onmovea_script                  (entity *ent);
+void    execute_didblock_script                 (entity *ent, entity *other, s_collision_attack *attack);
+void    execute_ondoattack_script               (entity *ent, entity *other, s_collision_attack *attack, e_exchange which, int attack_id);
+void    execute_updateentity_script             (entity *ent);
+void    execute_think_script                    (entity *ent);
+void    execute_didhit_script                   (entity *ent, entity *other, s_collision_attack *attack, int blocked);
+void    execute_onspawn_script                  (entity *ent);
 void    clearbuttonss(int player);
 void    clearsettings(void);
 void    savesettings(void);
@@ -2819,6 +2887,8 @@ s_model *nextplayermodel(s_model *current);
 s_model *prevplayermodel(s_model *current);
 void free_anim(s_anim *anim);
 void free_models();
+int free_model();
+void cache_model_sprites();
 s_anim                  *alloc_anim();
 s_collision_attack      *collision_alloc_attack_instance(s_collision_attack* properties);
 s_collision_attack      **collision_alloc_attack_list();
@@ -2910,7 +2980,8 @@ void ent_summon_ent(entity *ent);
 void ent_set_anim(entity *ent, int aninum, int resetable);
 void ent_set_colourmap(entity *ent, unsigned int which);
 void ent_set_model(entity *ent, char *modelname, int syncAnim);
-entity *spawn(float x, float z, float a, int direction, char *name, int index, s_model *model);
+entity *spawn_attack_flash(entity *ent, s_collision_attack *attack, int attack_flash, int model_flash);
+entity *spawn(float x, float z, float a, e_direction direction, char *name, int index, s_model *model);
 void ent_unlink(entity *e);
 void ents_link(entity *e1, entity *e2);
 void kill_entity(entity *victim);
